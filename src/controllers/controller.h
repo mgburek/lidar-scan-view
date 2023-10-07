@@ -27,7 +27,7 @@ private slots:
     void startScanning();
     void stopAll();
     void readScanData();
-    void connectionLost(QSerialPort::SerialPortError error);
+    void handleConnectionError(QSerialPort::SerialPortError error);
 
 private:
     ScanDataModel *_scanDataModel;

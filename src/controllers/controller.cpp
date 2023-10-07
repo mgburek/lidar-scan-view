@@ -40,7 +40,7 @@ ScannerController::ScannerController(ScanDataModel *scanDataModel, MainWindow *m
                                    { this->stopAll(); });
 
     QObject::connect(&_connection, &QSerialPort::readyRead, this, &ScannerController::readScanData);
-    QObject::connect(&_connection, &QSerialPort::errorOccurred, this, &ScannerController::connectionLost);
+    QObject::connect(&_connection, &QSerialPort::errorOccurred, this, &ScannerController::handleConnectionError);
 }
 
 ScannerController::~ScannerController()
@@ -167,7 +167,33 @@ void ScannerController::readScanData()
     } while (bytes >= 6);
 }
 
-void ScannerController::connectionLost(QSerialPort::SerialPortError error)
+void ScannerController::handleConnectionError(QSerialPort::SerialPortError error)
 {
-    qDebug() << error;
+    switch (error)
+    {
+    case QSerialPort::SerialPortError::NoError:
+    case QSerialPort::SerialPortError::DeviceNotFoundError:
+    case QSerialPort::SerialPortError::NotOpenError:
+    case QSerialPort::SerialPortError::OpenError:
+    case QSerialPort::SerialPortError::PermissionError:
+    case QSerialPort::SerialPortError::ReadError:
+    case QSerialPort::SerialPortError::TimeoutError:
+    case QSerialPort::SerialPortError::UnknownError:
+    case QSerialPort::SerialPortError::UnsupportedOperationError:
+    case QSerialPort::SerialPortError::WriteError:
+        return;
+    case QSerialPort::SerialPortError::ResourceError:
+        _connection.close();
+
+        _mainWindow->showAction(ActionsFactory::Key::DISCONNECT_DEVICE, false);
+        _mainWindow->showAction(ActionsFactory::Key::CONNECT_TO_DEVICE, true);
+
+        _mainWindow->enableAction(ActionsFactory::Key::START_SCANNING, false);
+        _mainWindow->enableAction(ActionsFactory::Key::STOP_ALL, false);
+
+        _mainWindow->statusBarMessage(StatusBar::Message::NO_DEVICE_CONNECTED);
+
+        _mainWindow->addLog("Connection lost");
+        break;
+    }
 }

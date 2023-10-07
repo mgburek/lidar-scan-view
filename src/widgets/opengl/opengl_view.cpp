@@ -17,8 +17,6 @@ OpenGLView::OpenGLView(QWidget *parent, ScanDataModel *scanDataModel)
 {
     this->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     this->setMinimumSize(600, 400);
-
-    grabGesture(Qt::PanGesture);
 }
 
 OpenGLView::~OpenGLView()
