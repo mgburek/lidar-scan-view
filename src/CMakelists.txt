@@ -1,0 +1,11 @@
+add_subdirectory(models)
+
+target_include_directories(${MAIN_EXECUTABLE_NAME} PUBLIC ./models/)
+
+add_subdirectory(widgets)
+
+target_include_directories(${MAIN_EXECUTABLE_NAME} PUBLIC ./widgets/)
+
+add_subdirectory(controllers)
+
+target_include_directories(${MAIN_EXECUTABLE_NAME} PUBLIC ./controllers/)
