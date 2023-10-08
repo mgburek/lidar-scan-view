@@ -17,6 +17,19 @@
 class ScannerController : public QObject
 {
     Q_OBJECT
+
+    enum class MessageCode : int8_t
+    {
+        UNKNOWN = 0x60,
+        STOP_ALL = 0x61,
+        START_SCANNING = 0x62,
+        OK = 0x63,
+        FRAME_BEGIN = 0x64,
+        FRAME_END = 0x65,
+        SCAN_FINISHED = 0x66,
+        STEP_INFO = 0x67
+    };
+
 public:
     ScannerController(ScanDataModel *scanDataModel, MainWindow *mainWindow);
     ~ScannerController();
@@ -34,6 +47,10 @@ private:
     MainWindow *_mainWindow;
 
     QSerialPort _connection;
+    long int _sampleCount;
+    long int _expectedSampleCount;
+    inline static const float _yawRange = 180.0;
+    inline static const float _pitchRange = 120.0;
 };
 
 #endif // CONTROLLER_H

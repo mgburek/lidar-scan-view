@@ -1,5 +1,7 @@
 #include "controller.h"
 
+#include <QInputDialog>
+
 // #####  #####  #   #  #####  ####   #####  #      #      #####  ####
 // #      #   #  ##  #    #    #   #  #   #  #      #      #      #   #
 // #      #   #  # # #    #    ####   #   #  #      #      #####  ####
@@ -24,7 +26,9 @@ ScannerController::ScannerController(ScanDataModel *scanDataModel, MainWindow *m
     : QObject(),
       _scanDataModel{scanDataModel},
       _mainWindow{mainWindow},
-      _connection(mainWindow)
+      _connection(mainWindow),
+      _sampleCount{0},
+      _expectedSampleCount{0}
 {
 
     _mainWindow->setActionCallback(ActionsFactory::Key::CONNECT_TO_DEVICE, [this]()
@@ -127,9 +131,27 @@ void ScannerController::disconnectDevice()
 
 void ScannerController::startScanning()
 {
-    char code = 0x62;
-    _connection.write(&code, 1);
-    _mainWindow->addLog("Scan started");
+    bool ok{false};
+    float step =
+        QInputDialog::getDouble(_mainWindow, "Scan precission", "Servo motor step",
+                                1.0, 0.5, 10.0, 1, &ok, Qt::Widget, 0.1);
+    if (ok)
+    {
+        _sampleCount = 0;
+        _expectedSampleCount = static_cast<int>((1 + (_pitchRange / step)) * (1 + (_yawRange / step)));
+
+        char code = static_cast<char>(MessageCode::STEP_INFO);
+        _connection.write(&code, 1);
+
+        // step * 10 should be maximally equal to 100 which fits into 8bits
+        uint8_t step8byte = static_cast<uint8_t>(step * 10);
+        _connection.write(reinterpret_cast<char *>(&step8byte), 1);
+
+        code = static_cast<char>(MessageCode::START_SCANNING);
+        _connection.write(&code, 1);
+        _mainWindow->addLog("Scan started");
+        _mainWindow->enableAction(ActionsFactory::Key::START_SCANNING, false);
+    }
 }
 
 void ScannerController::stopAll()
@@ -145,29 +167,51 @@ void ScannerController::readScanData()
     do
     {
         bytes = _connection.bytesAvailable();
-        if (bytes >= 6)
+        if (bytes >= 8)
         {
-            static char data[6];
-            _connection.read(data, 6);
+            static char data[8];
+            _connection.read(data, 8);
 
-            int16_t distance = ((data[0] & 0x00ff) | (data[1] << 8 & 0xff00));
-            int16_t upper = ((data[2] & 0x00ff) | (data[3] << 8 & 0xff00));
-            int16_t bottom = ((data[4] & 0x00ff) | (data[5] << 8 & 0xff00));
+            int8_t beginCode = static_cast<int8_t>(data[0]);
+            int8_t endCode = static_cast<int8_t>(data[7]);
 
-            double yaw = bottom / 10.0;  // deg
-            double pitch = upper / 10.0; // deg
-
-            QVector3D cartesian = polarToCartesian(distance, yaw, pitch);
-            if (distance < 800 && distance > 20)
+            if (static_cast<MessageCode>(beginCode) == MessageCode::FRAME_BEGIN &&
+                static_cast<MessageCode>(endCode) == MessageCode::FRAME_END)
             {
-                _scanDataModel->add(Point(cartesian.x(), cartesian.y(), cartesian.z(), distance / 200.0));
-                _mainWindow->updateScanVisualisation();
+                int16_t distance = ((data[1] & 0x00ff) | (data[2] << 8 & 0xff00));
+                int16_t upper = ((data[3] & 0x00ff) | (data[4] << 8 & 0xff00));
+                int16_t bottom = ((data[5] & 0x00ff) | (data[6] << 8 & 0xff00));
+
+                double yaw = bottom / 10.0;  // deg
+                double pitch = upper / 10.0; // deg
+
+                if (distance < 800 && distance > 20)
+                {
+                    _sampleCount++;
+                    QVector3D cartesian = polarToCartesian(distance, yaw, pitch);
+                    _scanDataModel->add(Point(cartesian.x(), cartesian.y(), cartesian.z(), distance / 200.0));
+                    _mainWindow->updateScanVisualisation();
+                }
+                else
+                    qDebug() << "Sample was thrown away";
+            }
+            else
+            {
+                for (int i{0}; i < sizeof(data); i++)
+                    if (static_cast<MessageCode>(data[i]) == MessageCode::SCAN_FINISHED)
+                    {
+                        _mainWindow->addLog("Scan finished");
+                        _mainWindow->addLog("Samples: " + QString::number(_sampleCount) + "/" +
+                                            QString::number(_expectedSampleCount));
+                        _mainWindow->enableAction(ActionsFactory::Key::START_SCANNING, true);
+                        return;
+                    }
             }
 
-            for (int i{0}; i < sizeof(data);)
-                data[i++] = 0;
+            for (int i{0}; i < sizeof(data); i++)
+                data[i] = 0;
         }
-    } while (bytes >= 6);
+    } while (bytes >= 8);
 }
 
 void ScannerController::handleConnectionError(QSerialPort::SerialPortError error)
