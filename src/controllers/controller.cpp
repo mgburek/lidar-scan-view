@@ -66,14 +66,14 @@ void ScannerController::connectToDevice()
     }
     if (port.portName() == "")
     {
-        msg = "No device found";
+        msg = "Device not found";
         _mainWindow->statusBarMessage(StatusBar::Message::NO_DEVICE_CONNECTED);
         _mainWindow->addLog(msg);
 
         return;
     }
 
-    msg = "Trying to connect to device";
+    msg = "Device found";
     _mainWindow->addLog(msg);
 
     _connection.setPort(port);
@@ -147,7 +147,7 @@ void ScannerController::readScanData()
         bytes = _connection.bytesAvailable();
         if (bytes >= 6)
         {
-            char *data = new char[6];
+            static char data[6];
             _connection.read(data, 6);
 
             int16_t distance = ((data[0] & 0x00ff) | (data[1] << 8 & 0xff00));
@@ -158,11 +158,14 @@ void ScannerController::readScanData()
             double pitch = upper / 10.0; // deg
 
             QVector3D cartesian = polarToCartesian(distance, yaw, pitch);
-            _scanDataModel->add(Point(cartesian.x(), cartesian.y(), cartesian.z(), distance / 200.0));
-            _mainWindow->updateScanVisualisation();
+            if (distance < 800 && distance > 20)
+            {
+                _scanDataModel->add(Point(cartesian.x(), cartesian.y(), cartesian.z(), distance / 200.0));
+                _mainWindow->updateScanVisualisation();
+            }
 
-            delete[] data;
-            data = nullptr;
+            for (int i{0}; i < sizeof(data);)
+                data[i++] = 0;
         }
     } while (bytes >= 6);
 }

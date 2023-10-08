@@ -73,7 +73,7 @@ private:
                  {Key::DISCONNECT_DEVICE, new Action(parent, "Disconnect", "Device")},
                  {Key::CONNECT_TO_DEVICE, new Action(parent, "Connect", "Device")},
                  {Key::START_SCANNING, new Action(parent, "Start scanning", "Device")},
-                 {Key::STOP_ALL, new Action(parent, "Stop all", "Device")},
+                 //{Key::STOP_ALL, new Action(parent, "Stop all", "Device")},
                  {Key::TOGGLE_LOGS, new Action(parent, "Toggle logs", "View")},
                  {Key::CLEAR_SCREEN, new Action(parent, "Clear screen", "View")}});
     }

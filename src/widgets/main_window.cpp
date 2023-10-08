@@ -66,29 +66,31 @@ void MainWindow::initUI()
             _toolBar->addAction(action);
     }
 
-    actions[ActionsFactory::Key::DISCONNECT_DEVICE]->setVisible(false);
-    actions[ActionsFactory::Key::START_SCANNING]->setEnabled(false);
-    actions[ActionsFactory::Key::STOP_ALL]->setEnabled(false);
+    showAction(ActionsFactory::Key::DISCONNECT_DEVICE, false);
+    enableAction(ActionsFactory::Key::START_SCANNING, false);
+    enableAction(ActionsFactory::Key::STOP_ALL, false);
 }
 
 void MainWindow::setActionCallback(ActionsFactory::Key key, std::function<void()> callback)
 {
-    if (auto a = _actionsFactory.get(key))
+    if (Action* action = _actionsFactory.get(key))
     {
-        connect(a, &QAction::triggered, callback);
+        connect(action, &QAction::triggered, callback);
     }
     else
-        qDebug() << "nullptr";
+        qDebug() << "Action does not exist (" << static_cast<int>(key) <<")";
 }
 
 void MainWindow::showAction(ActionsFactory::Key key, bool enable)
 {
-    _actionsFactory.get(key)->setVisible(enable);
+    if (Action *action = _actionsFactory.get(key))
+        action->setVisible(enable);
 }
 
 void MainWindow::enableAction(ActionsFactory::Key key, bool enable)
 {
-    _actionsFactory.get(key)->setEnabled(enable);
+    if (Action *action = _actionsFactory.get(key))
+        action->setEnabled(enable);
 }
 
 void MainWindow::toggleLogsViewVisibility()
