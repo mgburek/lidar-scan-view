@@ -134,7 +134,7 @@ void ScannerController::startScanning()
     bool ok{false};
     float step =
         QInputDialog::getDouble(_mainWindow, "Scan precission", "Servo motor step",
-                                1.0, 0.5, 10.0, 1, &ok, Qt::Widget, 0.1);
+                                0.5, 0.1, 1.0, 1, &ok, Qt::Widget, 0.1);
     if (ok)
     {
         _sampleCount = 0;
@@ -143,7 +143,6 @@ void ScannerController::startScanning()
         char code = static_cast<char>(MessageCode::STEP_INFO);
         _connection.write(&code, 1);
 
-        // step * 10 should be maximally equal to 100 which fits into 8bits
         uint8_t step8byte = static_cast<uint8_t>(step * 10);
         _connection.write(reinterpret_cast<char *>(&step8byte), 1);
 
@@ -164,16 +163,17 @@ void ScannerController::stopAll()
 void ScannerController::readScanData()
 {
     int bytes{0};
+    const static int data_size = 14;
     do
     {
         bytes = _connection.bytesAvailable();
-        if (bytes >= 8)
+        if (bytes >= data_size)
         {
-            static char data[8];
-            _connection.read(data, 8);
+            static char data[data_size];
+            _connection.read(data, data_size);
 
             int8_t beginCode = static_cast<int8_t>(data[0]);
-            int8_t endCode = static_cast<int8_t>(data[7]);
+            int8_t endCode = static_cast<int8_t>(data[data_size - 1]);
 
             if (static_cast<MessageCode>(beginCode) == MessageCode::FRAME_BEGIN &&
                 static_cast<MessageCode>(endCode) == MessageCode::FRAME_END)
@@ -184,6 +184,11 @@ void ScannerController::readScanData()
 
                 double yaw = bottom / 10.0;  // deg
                 double pitch = upper / 10.0; // deg
+
+                int16_t signal_strength = ((data[7] & 0x00ff) | (data[8] << 8 & 0xff00));
+                int32_t timestamp = ((data[9] & 0x00ff) | (data[10] << 8 & 0xff00) | (data[11] << 16 & 0xff0000) | (data[12] << 24 & 0xff000000));
+
+                qDebug() << "DIST: " << distance << " PITCH: " << pitch << " YAW: " << yaw << " STR: " << signal_strength << " TIME: " << timestamp;
 
                 if (distance < 800 && distance > 20)
                 {
@@ -211,7 +216,7 @@ void ScannerController::readScanData()
             for (int i{0}; i < sizeof(data); i++)
                 data[i] = 0;
         }
-    } while (bytes >= 8);
+    } while (bytes >= data_size);
 }
 
 void ScannerController::handleConnectionError(QSerialPort::SerialPortError error)
