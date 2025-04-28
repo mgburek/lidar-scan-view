@@ -27,10 +27,10 @@ OpenGLView::~OpenGLView()
 
 void OpenGLView::initializeGL()
 {
+    QOpenGLWidget::initializeGL();
+
     _painter = new OpenGLPainter(this->context());
     _camera = new Camera(this->context());
-
-    QOpenGLWidget::initializeGL();
 }
 
 void OpenGLView::resizeGL(int w, int h)
@@ -41,6 +41,8 @@ void OpenGLView::resizeGL(int w, int h)
 
 void OpenGLView::paintGL()
 {
+    QOpenGLWidget::paintGL();
+
     _painter->prepareForPainting();
     {
         for (const Point &p : _scanDataModel->points())
@@ -51,7 +53,6 @@ void OpenGLView::paintGL()
         _painter->paintMesh(0, 0, 0);
     }
     _painter->resetAfterPainting();
-    QOpenGLWidget::paintGL();
 }
 
 void OpenGLView::keyPressEvent(QKeyEvent *event)
